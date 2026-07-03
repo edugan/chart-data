@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import re
+import time
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -10,6 +11,9 @@ def parse_chart_row(row_soup):
     """Parses a single chart row into a dict of attributes."""
     data = {}
 
+    # Use data-detail-target as the authoritative position — it's the chart's
+    # internal ordinal index and appears more reliable than the displayed
+    # number, which can occasionally be mislabeled on older archived pages.
     row_ul = row_soup.find("ul", class_="o-chart-results-list-row")
     displayed_pos_tag = row_soup.find("span", class_="c-label")
     displayed_pos_text = displayed_pos_tag.get_text(strip=True) if displayed_pos_tag else None
@@ -79,33 +83,40 @@ def parse_chart_row(row_soup):
     return data
 
 
-def scrape_billboard_chart(chart_name, date_str):
+def scrape_billboard_chart(chart_name, date_str, max_retries=3):
     """
-    Scrapes a Billboard chart (e.g. 'hot-100', 'billboard-200') for a given
-    date ('YYYY-MM-DD') and returns a list of row dicts.
+    Scrapes a Billboard chart for a given date. Retries on timeout/connection
+    errors with increasing delay before giving up.
     """
     url = f"https://www.billboard.com/charts/{chart_name}/{date_str}/"
 
-    try:
-        print(f"Fetching '{chart_name}' for week: {date_str}...")
-        response = requests.get(url, headers=HEADERS, timeout=15)
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"Fetching '{chart_name}' for week: {date_str}... (attempt {attempt})")
+            response = requests.get(url, headers=HEADERS, timeout=20)
 
-        if response.status_code != 200:
-            print(f"-> Failed to fetch {date_str}. Status code: {response.status_code}")
-            return []
+            if response.status_code != 200:
+                print(f"-> Failed to fetch {date_str}. Status code: {response.status_code}")
+                return []
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        rows = soup.find_all("div", class_="o-chart-results-list-row-container")
+            soup = BeautifulSoup(response.text, 'html.parser')
+            rows = soup.find_all("div", class_="o-chart-results-list-row-container")
 
-        week_data = []
-        for row in rows:
-            parsed_row = parse_chart_row(row)
-            parsed_row["chart_date"] = date_str
-            week_data.append(parsed_row)
+            week_data = []
+            for row in rows:
+                parsed_row = parse_chart_row(row)
+                parsed_row["chart_date"] = date_str
+                week_data.append(parsed_row)
 
-        # print(f"-> Got {len(week_data)} rows for {date_str}.")
-        return week_data
+            print(f"-> Got {len(week_data)} rows for {date_str}.")
+            return week_data
 
-    except Exception as e:
-        print(f"-> Error processing {date_str}: {e}")
-        return []
+        except requests.exceptions.RequestException as e:
+            print(f"-> Attempt {attempt} failed for {date_str}: {e}")
+            if attempt < max_retries:
+                wait = 5 * attempt  # 5s, 10s, 15s...
+                print(f"-> Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"-> Giving up on {date_str} after {max_retries} attempts.")
+                return []
