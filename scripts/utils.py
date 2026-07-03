@@ -1,0 +1,37 @@
+from datetime import date, timedelta
+
+def generate_chart_dates(start_date, end_date):
+    """
+    Returns a sorted list of 'YYYY-MM-DD' strings for every valid Billboard
+    Hot 100 chart date between start_date and end_date (inclusive).
+
+    Handles three eras:
+      - Aug 4, 1958 to Dec 25, 1961: charts dated on Mondays
+      - Jan 6, 1962 onward: charts dated on Saturdays
+      - One-off exception: Jan 3, 2018 (a Wednesday) sits between the
+        Saturday charts dated Dec 30, 2017 and Jan 6, 2018.
+    """
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+
+    dates = []
+
+    # Era 1: Monday charts
+    monday_start = date(1958, 8, 4)
+    monday_end = date(1961, 12, 25)
+    current = monday_start
+    while current <= monday_end:
+        dates.append(current)
+        current += timedelta(weeks=1)
+
+    # Era 2: Saturday charts, with the Jan 3 2018 exception inserted
+    saturday_start = date(1962, 1, 6)
+    current = saturday_start
+    phase2_end = max(end, saturday_start)
+    while current <= phase2_end:
+        dates.append(current)
+        if current == date(2017, 12, 30):
+            dates.append(date(2018, 1, 3))
+        current += timedelta(weeks=1)
+
+    return [d.isoformat() for d in dates if start <= d <= end]
