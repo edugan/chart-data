@@ -90,7 +90,7 @@ def scrape_billboard_chart(chart_name, date_str):
             parsed_row["chart_date"] = date_str
             week_data.append(parsed_row)
 
-        print(f"-> Got {len(week_data)} rows for {date_str}.")
+        # print(f"-> Got {len(week_data)} rows for {date_str}.")
         return week_data
 
     except Exception as e:
