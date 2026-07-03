@@ -17,7 +17,7 @@ def backfill(chart_name, start_date, end_date, out_path, checkpoint_every=10, dr
     target_dates = generate_chart_dates(start_date, end_date)
 
     existing_dates = set()
-    if not dry_run and os.path.exists(out_path):
+    if not dry_run and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
         existing = pd.read_csv(out_path)
         existing_dates = set(existing["chart_date"].unique())
         print(f"Found existing file with {len(existing_dates)} dates already scraped.")
@@ -60,8 +60,9 @@ def backfill(chart_name, start_date, end_date, out_path, checkpoint_every=10, dr
 
 def _save(rows, out_path):
     df = pd.DataFrame(rows)[COLUMNS_ORDER]
+    file_has_content = os.path.exists(out_path) and os.path.getsize(out_path) > 0
 
-    if os.path.exists(out_path):
+    if file_has_content:
         df.to_csv(out_path, mode="a", header=False, index=False)
     else:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
