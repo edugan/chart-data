@@ -1,3 +1,4 @@
+from collections import deque
 import argparse
 import os
 import time
@@ -42,14 +43,32 @@ def backfill(chart_name, start_date, end_date, out_path, checkpoint_every=10, dr
         dates_to_fetch = dates_to_fetch[:3]
         print(f"[DRY RUN] Only fetching {len(dates_to_fetch)} week(s) for a quick look, nothing will be saved.")
 
+    dates_queue = deque(dates_to_fetch)
     all_rows = []
-    for i, target_date in enumerate(dates_to_fetch):
-        week_data = scrape_billboard_chart(chart_name, target_date)
+    processed_count = 0
+
+    while dates_queue:
+        target_date = dates_queue.popleft()
+        week_data, actual_date = scrape_billboard_chart(chart_name, target_date)
+
+        # Redirect detected: this date is before the chart existed.
+        # Prune every remaining queued date that's also before the real start,
+        # so we don't waste a request on each one individually.
+        if not week_data and actual_date and actual_date.isoformat() != target_date:
+            before = len(dates_queue)
+            dates_queue = deque(d for d in dates_queue if d >= actual_date.isoformat())
+            pruned = before - len(dates_queue)
+            if pruned:
+                print(f"-> Skipping {pruned} more date(s) before chart start ({actual_date.isoformat()}).")
+            time.sleep(1 + random.random())
+            continue
+
         all_rows.extend(week_data)
+        processed_count += 1
 
         time.sleep(1 + random.random())
 
-        if not dry_run and all_rows and (i + 1) % checkpoint_every == 0:
+        if not dry_run and all_rows and processed_count % checkpoint_every == 0:
             _save(all_rows, out_path)
             all_rows = []
 

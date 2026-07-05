@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from datetime import datetime
 import requests
 import re
 import time
@@ -6,6 +7,25 @@ import time
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
+
+def extract_chart_date(soup):
+    """
+    Finds the 'Week of <Month> <Day>, <Year>' label on the page and returns
+    it as a date object. Used to detect when Billboard has redirected us to
+    the nearest available chart instead of the one we actually requested
+    (which happens when you request a date before a chart existed).
+    """
+    span = soup.find("span", string=re.compile(r"Week of", re.I))
+    if not span:
+        return None
+    text = span.get_text(strip=True)
+    m = re.search(r"Week of (.+)", text)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%B %d, %Y").date()
+    except ValueError:
+        return None
 
 def parse_chart_row(row_soup):
     """Parses a single chart row into a dict of attributes."""
@@ -69,8 +89,10 @@ def parse_chart_row(row_soup):
 
 def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
     """
-    Scrapes a Billboard chart for a given date, retrying on transient
-    errors (timeouts, connection issues) before giving up.
+    Scrapes a Billboard chart for a given date, retrying on transient errors.
+    Returns (rows, actual_date) where actual_date is the real chart date
+    found on the page — this lets the caller detect when Billboard has
+    redirected to a different chart than the one requested.
     """
     url = f"https://www.billboard.com/charts/{chart_name}/{date_str}/"
 
@@ -81,8 +103,14 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
 
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
-                rows = soup.find_all("div", class_="o-chart-results-list-row-container")
+                actual_date = extract_chart_date(soup)
 
+                if actual_date and actual_date.isoformat() != date_str:
+                    print(f"-> {date_str} redirected to {actual_date.isoformat()} "
+                          f"(chart likely didn't exist yet). Skipping.")
+                    return [], actual_date
+                
+                rows = soup.find_all("div", class_="o-chart-results-list-row-container")
                 week_data = []
                 for row in rows:
                     parsed_row = parse_chart_row(row)
@@ -90,7 +118,7 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
                     week_data.append(parsed_row)
 
                 # print(f"-> Got {len(week_data)} rows for {date_str}.")
-                return week_data
+                return week_data, actual_date
 
             elif response.status_code == 429:
                 # Rate limited — wait longer before retrying
@@ -100,7 +128,7 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
 
             else:
                 print(f"-> Failed to fetch {date_str}. Status code: {response.status_code}")
-                return []  # don't retry on things like 404 — it won't resolve itself
+                return [], None  # don't retry on things like 404 — it won't resolve itself
 
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             wait = 3 * attempt
@@ -110,10 +138,10 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
                 time.sleep(wait)
             else:
                 print(f"-> Giving up on {date_str} after {max_retries} attempts.")
-                return []
+                return [], None
 
         except Exception as e:
             print(f"-> Unexpected error processing {date_str}: {e}")
-            return []
+            return [], None
 
-    return []
+    return [], None
