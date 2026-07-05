@@ -13,12 +13,24 @@ COLUMNS_ORDER = [
     "debut_date", "awards_vector"
 ]
 
+COLUMN_DTYPES = {
+    "chart_date": "string",
+    "current_position": "Int64",       # nullable int, in case of any None
+    "title": "string",
+    "artist_name": "string",
+    "last_week_position": "string",    # mixes ints, "NEW", "RE"
+    "weeks_on_chart": "Int64",
+    "debut_position": "Int64",
+    "debut_date": "string",
+    "awards_vector": "string",
+}
+
 def backfill(chart_name, start_date, end_date, out_path, checkpoint_every=10, dry_run=False):
     target_dates = generate_chart_dates(start_date, end_date)
 
     existing_dates = set()
     if not dry_run and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-        existing = pd.read_csv(out_path)
+        existing = pd.read_csv(out_path, dtype=COLUMN_DTYPES)
         existing_dates = set(existing["chart_date"].unique())
         print(f"Found existing file with {len(existing_dates)} dates already scraped.")
 
@@ -76,8 +88,10 @@ if __name__ == "__main__":
     parser.add_argument("--chart", default="hot-100")
     parser.add_argument("--start", required=True, help="YYYY-MM-DD")
     parser.add_argument("--end", required=True, help="YYYY-MM-DD")
-    parser.add_argument("--out", default="data/hot-100.csv")
+    parser.add_argument("--out", default=None, help="Defaults to data/<chart>.csv if not specified")
     parser.add_argument("--dry-run", action="store_true", help="Print results instead of saving to file")
     args = parser.parse_args()
 
-    backfill(args.chart, args.start, args.end, args.out, dry_run=args.dry_run)
+    out_path = args.out if args.out else f"data/{args.chart}.csv"
+
+    backfill(args.chart, args.start, args.end, out_path, dry_run=args.dry_run)
