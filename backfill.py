@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("--chart", default="hot-100")
     parser.add_argument("--start", required=True, help="YYYY-MM-DD")
     parser.add_argument("--end", required=True, help="YYYY-MM-DD")
-    parser.add_argument("--out", default="data/hot100.csv")
+    parser.add_argument("--out", default="data/hot-100.csv")
     parser.add_argument("--dry-run", action="store_true", help="Print results instead of saving to file")
     args = parser.parse_args()
 
