@@ -11,24 +11,8 @@ def parse_chart_row(row_soup):
     """Parses a single chart row into a dict of attributes."""
     data = {}
 
-    # Use data-detail-target as the authoritative position — it's the chart's
-    # internal ordinal index and appears more reliable than the displayed
-    # number, which can occasionally be mislabeled on older archived pages.
-    row_ul = row_soup.find("ul", class_="o-chart-results-list-row")
-    displayed_pos_tag = row_soup.find("span", class_="c-label")
-    displayed_pos_text = displayed_pos_tag.get_text(strip=True) if displayed_pos_tag else None
-
-    if row_ul and row_ul.get("data-detail-target", "").isdigit():
-        data["current_position"] = int(row_ul["data-detail-target"])
-    elif displayed_pos_text and displayed_pos_text.isdigit():
-        data["current_position"] = int(displayed_pos_text)
-    else:
-        data["current_position"] = None
-
-    if (displayed_pos_text and displayed_pos_text.isdigit()
-            and int(displayed_pos_text) != data["current_position"]):
-        print(f"  [!] Position mismatch: displayed='{displayed_pos_text}' "
-              f"but data-detail-target={data['current_position']}")
+    pos_tag = row_soup.find("span", class_="c-label")
+    data["current_position"] = int(pos_tag.get_text(strip=True)) if pos_tag and pos_tag.get_text(strip=True).isdigit() else None
 
     title_tag = row_soup.find("h3", id="title-of-a-story")
     data["title"] = title_tag.get_text(strip=True) if title_tag else None
@@ -108,7 +92,7 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3):
                 parsed_row["chart_date"] = date_str
                 week_data.append(parsed_row)
 
-            print(f"-> Got {len(week_data)} rows for {date_str}.")
+            # print(f"-> Got {len(week_data)} rows for {date_str}.")
             return week_data
 
         except requests.exceptions.RequestException as e:
