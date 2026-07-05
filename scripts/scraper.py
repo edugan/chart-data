@@ -67,40 +67,53 @@ def parse_chart_row(row_soup):
     return data
 
 
-def scrape_billboard_chart(chart_name, date_str, max_retries=3):
+def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
     """
-    Scrapes a Billboard chart for a given date. Retries on timeout/connection
-    errors with increasing delay before giving up.
+    Scrapes a Billboard chart for a given date, retrying on transient
+    errors (timeouts, connection issues) before giving up.
     """
     url = f"https://www.billboard.com/charts/{chart_name}/{date_str}/"
 
     for attempt in range(1, max_retries + 1):
         try:
             print(f"Fetching '{chart_name}' for week: {date_str}... (attempt {attempt})")
-            response = requests.get(url, headers=HEADERS, timeout=20)
+            response = requests.get(url, headers=HEADERS, timeout=timeout)
 
-            if response.status_code != 200:
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                rows = soup.find_all("div", class_="o-chart-results-list-row-container")
+
+                week_data = []
+                for row in rows:
+                    parsed_row = parse_chart_row(row)
+                    parsed_row["chart_date"] = date_str
+                    week_data.append(parsed_row)
+
+                print(f"-> Got {len(week_data)} rows for {date_str}.")
+                return week_data
+
+            elif response.status_code == 429:
+                # Rate limited — wait longer before retrying
+                wait = 5 * attempt
+                print(f"-> Rate limited (429) for {date_str}. Waiting {wait}s before retry...")
+                time.sleep(wait)
+
+            else:
                 print(f"-> Failed to fetch {date_str}. Status code: {response.status_code}")
-                return []
+                return []  # don't retry on things like 404 — it won't resolve itself
 
-            soup = BeautifulSoup(response.text, 'html.parser')
-            rows = soup.find_all("div", class_="o-chart-results-list-row-container")
-
-            week_data = []
-            for row in rows:
-                parsed_row = parse_chart_row(row)
-                parsed_row["chart_date"] = date_str
-                week_data.append(parsed_row)
-
-            # print(f"-> Got {len(week_data)} rows for {date_str}.")
-            return week_data
-
-        except requests.exceptions.RequestException as e:
-            print(f"-> Attempt {attempt} failed for {date_str}: {e}")
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            wait = 3 * attempt
+            print(f"-> Network error for {date_str} (attempt {attempt}/{max_retries}): {e}")
             if attempt < max_retries:
-                wait = 5 * attempt  # 5s, 10s, 15s...
-                print(f"-> Retrying in {wait}s...")
+                print(f"   Retrying in {wait}s...")
                 time.sleep(wait)
             else:
                 print(f"-> Giving up on {date_str} after {max_retries} attempts.")
                 return []
+
+        except Exception as e:
+            print(f"-> Unexpected error processing {date_str}: {e}")
+            return []
+
+    return []
