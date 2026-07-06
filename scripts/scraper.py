@@ -87,7 +87,7 @@ def parse_chart_row(row_soup):
     return data
 
 
-def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=15):
+def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=20):
     """
     Scrapes a Billboard chart for a given date, retrying on transient errors.
     Returns (rows, actual_date) where actual_date is the real chart date
