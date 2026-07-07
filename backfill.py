@@ -10,8 +10,7 @@ from scripts.utils import generate_chart_dates
 
 COLUMNS_ORDER = [
     "chart_date", "current_position", "title", "artist_name",
-    "last_week_position", "weeks_on_chart", "debut_position",
-    "debut_date", "awards_vector"
+    "last_week_position", "weeks_on_chart", "awards_vector"
 ]
 
 COLUMN_DTYPES = {
@@ -21,8 +20,6 @@ COLUMN_DTYPES = {
     "artist_name": "string",
     "last_week_position": "string",    # mixes ints, "NEW", "RE"
     "weeks_on_chart": "Int64",
-    "debut_position": "Int64",
-    "debut_date": "string",
     "awards_vector": "string",
 }
 

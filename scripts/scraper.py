@@ -39,8 +39,8 @@ def parse_chart_row(row_soup):
 
     artist_container = row_soup.find("span", class_="a-no-trucate")
     if artist_container:
-        raw_artist_text = artist_container.get_text(separator=" ", strip=True)
-        data["artist_name"] = re.sub(r'\s+', ' ', raw_artist_text)
+        raw_artist_text = artist_container.get_text()
+        data["artist_name"] = re.sub(r'\s+', ' ', raw_artist_text).strip()
     else:
         data["artist_name"] = None
 
@@ -64,16 +64,6 @@ def parse_chart_row(row_soup):
             data["last_week_position"] = "NEW" if data["weeks_on_chart"] <= 1 else "RE"
     else:
         data["last_week_position"] = "NEW" if data["weeks_on_chart"] <= 1 else "RE"
-
-    debut_section = row_soup.find("div", class_="o-chart-position-stats__debut")
-    if debut_section:
-        num_tag = debut_section.find("span", class_="c-label")
-        data["debut_position"] = int(num_tag.get_text(strip=True)) if num_tag and num_tag.get_text(strip=True).isdigit() else None
-        date_link = debut_section.find("a", class_="c-label__link")
-        data["debut_date"] = date_link.get_text(strip=True) if date_link else None
-    else:
-        data["debut_position"] = None
-        data["debut_date"] = None
 
     awards = []
     awards_section = row_soup.find("div", class_="o-chart-awards")
