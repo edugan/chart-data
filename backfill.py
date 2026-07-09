@@ -108,6 +108,6 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Print results instead of saving to file")
     args = parser.parse_args()
 
-    out_path = args.out if args.out else f"data/{args.chart}.csv"
+    out_path = args.out if args.out else f"data/raw/{args.chart}.csv"
 
     backfill(args.chart, args.start, args.end, out_path, dry_run=args.dry_run)
