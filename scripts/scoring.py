@@ -3,7 +3,7 @@ import numpy as np
 def hot100_points(position):
     """Points for a Hot 100 chart position, derived from real chart point estimates."""
     k = position
-    return -0.458767 * np.log(k) + 0.000515899 * (k - 1) + 1
+    return -0.19924 * np.log(k) + 0.000515899 * (k - 1) + 1
 
 
 def billboard200_points(position):
