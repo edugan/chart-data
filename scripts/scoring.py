@@ -1,20 +1,27 @@
-import numpy as np
-
-def hot100_points(position):
-    """Points for a Hot 100 chart position, derived from real chart point estimates."""
-    k = position
-    return -0.19924 * np.log(k) + 0.000515899 * (k - 1) + 1
-
-
-def billboard200_points(position):
-    """Points for a Billboard 200 chart position, derived from real units data."""
-    k = position
-    return ((k - 0.31072) / (1 - 0.31072)) ** (-0.523826)
+def _general_points(k, d, b, c):
+    """
+    Shared functional form behind all point formulas:
+    ((k - d) / (1 - d)) ^ (-b - c*(k - 1))
+    """
+    exponent = -b - c * (k - 1)
+    return ((k - d) / (1 - d)) ** exponent
 
 
-# Only charts listed here get point-scoring / song-totals treatment.
-# Charts not listed simply aren't eligible for build_song_totals.py.
+# Each chart's (d, b, c) parameters, fit from real chart-points/units data.
+POINT_PARAMS = {
+    "hot-100":       dict(d=-1.2826,   b=0.36673,  c=0.0016766),
+    "billboard-200": dict(d=0.255287,  b=0.543096, c=0.000284569),
+    "pop-radio":     dict(d=-2.0307,   b=0.351007, c=0.020407),
+    "country-radio": dict(d=-2.0307,   b=0.351007, c=0.020407),
+    "alt-radio":     dict(d=-2.0307,   b=0.351007, c=0.020407),
+}
+
+
+def _make_points_fn(d, b, c):
+    return lambda k: _general_points(k, d, b, c)
+
+
 SCORING_FUNCTIONS = {
-    "hot-100": hot100_points,
-    "billboard-200": billboard200_points,
+    chart_name: _make_points_fn(**params)
+    for chart_name, params in POINT_PARAMS.items()
 }
