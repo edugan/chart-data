@@ -4,6 +4,8 @@ import requests
 import re
 import time
 
+from scripts.chart_config import get_chart_slug
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
@@ -84,7 +86,8 @@ def scrape_billboard_chart(chart_name, date_str, max_retries=3, timeout=20):
     found on the page — this lets the caller detect when Billboard has
     redirected to a different chart than the one requested.
     """
-    url = f"https://www.billboard.com/charts/{chart_name}/{date_str}/"
+    slug = get_chart_slug(chart_name)
+    url = f"https://www.billboard.com/charts/{slug}/{date_str}/"
 
     for attempt in range(1, max_retries + 1):
         try:
