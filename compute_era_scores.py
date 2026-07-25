@@ -108,6 +108,9 @@ if __name__ == "__main__":
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
+    # print("!!! CANARY: compute_era_scores.py loaded from:", __file__)
+    # print("!!! args.mode =", args.mode)
+
     compute_era_scores(
         args.chart,
         mode=args.mode,

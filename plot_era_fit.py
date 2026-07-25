@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scripts.era_scoring import (
     PeerIndex, load_peer_summary, temporal_weight, weighted_quantile,
     adaptive_bandwidths, bulk_pdf, fit_gpd_weighted, score_run,
+    fit_gpd_bootstrap_ensemble, tail_survival_ensemble,
     WINDOW_WEEKS, TAIL_Q,
 )
 
@@ -75,19 +76,38 @@ def plot_era_fit(chart_name, title=None, artist=None, run_id=None,
 
     tail_grid = np.linspace(u, grid_max, 200)
     y_grid = tail_grid - u
+
+    # Point-estimate curve (a single illustrative fit -- NOT what scoring
+    # actually uses anymore). Clipped so it correctly decays to zero at its
+    # own implied ceiling instead of silently vanishing via NaN when xi < 0
+    # and y_grid exceeds -sigma/xi (exactly what was happening before).
     if abs(xi) < 1e-8:
         gpd_density = np.exp(-y_grid / sigma) / sigma
     else:
-        z = 1 + xi * y_grid / sigma
-        gpd_density = (1 / sigma) * np.power(z, -(1 / xi + 1))
-    gpd_density_scaled = q * gpd_density  # scaled so its area matches the empirical fraction above u
+        z = np.clip(1 + xi * y_grid / sigma, 0.0, None)
+        with np.errstate(invalid="ignore"):
+            gpd_density = (1 / sigma) * np.power(z, -(1 / xi + 1))
+        gpd_density = np.where(z <= 0, 0.0, gpd_density)
+    gpd_density_scaled = q * gpd_density
+
+    # Ensemble curve -- this IS what scoring actually uses. Approximated via
+    # a numerical derivative of the ensemble-averaged survival function,
+    # using the same run_id-seeded ensemble score_run itself would use.
+    xi_boot, sigma_boot = fit_gpd_bootstrap_ensemble(log_x[above] - u, weights[above], target_run_id)
+    dy = 1e-4
+    S_plus = np.array([tail_survival_ensemble(y + dy, xi_boot, sigma_boot) for y in y_grid])
+    S_minus = np.array([tail_survival_ensemble(max(y - dy, 0.0), xi_boot, sigma_boot) for y in y_grid])
+    ensemble_density = np.clip(-(S_plus - S_minus) / (2 * dy), 0, None)
+    ensemble_density_scaled = q * ensemble_density
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.hist(log_x, bins=60, weights=weights, density=True, alpha=0.35,
             label=f"Weighted peer histogram (n={len(points)})", color="steelblue")
     ax.plot(grid, bulk_density, color="navy", lw=2, label="Adaptive KDE (bulk model)")
-    ax.plot(tail_grid, gpd_density_scaled, color="crimson", lw=2, ls="--",
-            label=f"GPD tail (xi={xi:.3f}, sigma={sigma:.3f})")
+    ax.plot(tail_grid, gpd_density_scaled, color="crimson", lw=1.5, ls="--", alpha=0.6,
+            label=f"Point-estimate GPD (xi={xi:.3f}, sigma={sigma:.3f}) -- illustrative only")
+    ax.plot(tail_grid, ensemble_density_scaled, color="darkgreen", lw=2, ls="-",
+            label="Bootstrap ensemble tail (actual scoring model)")
     ax.axvline(u, color="gray", ls=":", lw=1.5, label=f"Tail threshold u (top {int(q*100)}%)")
     ax.axvline(target_log_x, color="darkorange", lw=2.5,
                label=f"{row['title']} (log-points={target_log_x:.2f})")

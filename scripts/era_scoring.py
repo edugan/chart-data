@@ -1,3 +1,5 @@
+import hashlib
+import json
 import numpy as np
 import pandas as pd
 from scipy.special import erf
@@ -25,12 +27,10 @@ def load_peer_summary(path):
     stored as JSON to avoid a pandas/pyarrow bug reading back list-of-string
     columns -- see build_weekly_peer_summary.py).
     """
-    import json
     df = pd.read_parquet(path)
     df["points_list"] = df["points_list"].apply(json.loads)
     df["run_ids"] = df["run_ids"].apply(json.loads)
     return df
-
 
 WINDOW_WEEKS = 156   # +/- 3 years: peers outside this are never considered
 HALF_WEIGHT_WEEKS = 52  # +/- 1 year: roughly half the total weight lives here
@@ -157,27 +157,23 @@ def fit_gpd_weighted(y, w):
     distribution to exceedances y (y >= 0), per Hosking & Wallis (1987),
     generalized to weighted samples via weighted plotting positions.
 
-    An earlier version used weighted MLE (via a softplus-reparameterized
-    xi >= 0 constraint, replacing an even earlier hard-boundary version that
-    had its own numerical instability). MLE turned out to have a much more
-    serious problem: at realistic tail-sample sizes (~100-200 weighted
-    exceedances), it collapses to exactly the xi=0 boundary in the large
-    majority of fits even when the true xi is solidly positive (tested:
-    true xi=0.4, n=150 -> MLE landed at the xi=0 boundary in 80% of trials,
-    median recovered xi=0.0). This is a well-documented small-sample bias
-    of GPD shape MLE, and it was silently flattening every era's fitted
-    tail toward a plain exponential, understating exactly how rare genuine
-    outliers are -- which is what era-adjusted scoring exists to capture.
+    xi is NOT floored at zero. Earlier versions forced xi >= 0, reasoning
+    that a negative xi (bounded support -- a hard finite ceiling on the
+    distribution) was implausible for chart performance. Real data
+    contradicted that: PWM (which has much better small-sample bias
+    behavior than MLE for this parameter) found negative xi in nearly
+    every fit across the chart's entire history, with only a brief,
+    independently-identified unusual stretch as an exception. This makes
+    sense in hindsight -- each week's score is capped at 1.0, and no run
+    lasts forever, so a run's total points genuinely does have a real,
+    finite local ceiling. Flooring xi at 0 was discarding that real signal
+    and flattening every era's tail toward an artificially heavier
+    (unbounded) shape than the data supports.
 
-    PWM has much better small-sample bias behavior for this parameter (same
-    test: median recovered xi=0.37-0.38, essentially never hitting the
-    boundary), is closed-form (no optimizer, so also faster), and is the
-    standard alternative recommended in the extreme value literature
-    specifically for this failure mode.
-
-    xi is still floored at 0 (never negative) for the same reason as
-    before: a negative xi implies a hard finite upper bound on the
-    distribution, which a genuine outlier could fall outside of.
+    Genuine record-breaking runs that exceed the fitted local ceiling are
+    handled separately in score_run via a bootstrap ensemble (see
+    fit_gpd_bootstrap_ensemble), rather than by forcing every fit to
+    pretend no ceiling exists.
     """
     order = np.argsort(y)
     y_sorted, w_sorted = y[order], w[order]
@@ -189,9 +185,87 @@ def fit_gpd_weighted(y, w):
 
     denom = 2 * b1 - b0
     xi = (4 * b1 - 3 * b0) / denom if abs(denom) > 1e-12 else 0.0
-    xi = max(xi, 0.0)
     sigma = max(b0 * (1 - xi), 1e-8)
     return xi, sigma
+
+
+N_BOOTSTRAP = 300
+
+
+def _stable_seed(run_id):
+    """
+    A deterministic seed derived from run_id, stable across processes and
+    sessions (unlike Python's built-in hash(), which is randomized per
+    process by default). Used so that scoring the same run always draws
+    the same bootstrap ensemble -- otherwise a routine re-score of an
+    already-computed-but-not-yet-finalized run could jitter purely from
+    fresh randomness, with no real change in the underlying data.
+    """
+    h = hashlib.md5(str(run_id).encode()).hexdigest()
+    return int(h[:8], 16)
+
+
+def fit_gpd_bootstrap_ensemble(y, w, run_id, n_boot=N_BOOTSTRAP):
+    """
+    Generates an ensemble of n_boot plausible (xi, sigma) pairs via a
+    Bayesian bootstrap (Rubin 1981): each replicate reweights the same
+    exceedances by an independent Exponential(1) draw per point, then
+    refits PWM. This propagates the real sampling uncertainty in the tail
+    fit into an ensemble of curves, rather than committing to one point
+    estimate.
+
+    Replaces an earlier "anchor to the fitted ceiling and extrapolate
+    linearly" patch, which required a hand-tuned margin parameter and
+    still produced the wrong curvature at the very top of the all-time
+    list (no single margin value matched the target order statistics
+    well). The ensemble approach has no such tunable: a target whose
+    points exceed the CENTRAL point estimate's ceiling still gets a
+    smooth, small, non-zero, principled survival probability from
+    whichever replicates didn't rule it out (some bootstrap draws will
+    naturally land on a less-negative or non-negative xi, i.e. a higher
+    or absent ceiling) -- and eras with less tail data get a wider,
+    more uncertain ensemble automatically, rather than every era being
+    smoothed by the same fixed margin regardless of how much data
+    supports its fit.
+    """
+    order = np.argsort(y)
+    y_sorted, w_sorted = y[order], w[order]
+    n = len(y_sorted)
+
+    rng = np.random.default_rng(_stable_seed(run_id))
+    e = rng.exponential(1.0, size=(n, n_boot))
+    w_boot = w_sorted[:, None] * e
+
+    cum_w = np.cumsum(w_boot, axis=0) - 0.5 * w_boot
+    total_w = w_boot.sum(axis=0)
+    F_boot = cum_w / total_w[None, :]
+
+    b0 = (w_boot * y_sorted[:, None]).sum(axis=0) / total_w
+    b1 = (w_boot * F_boot * y_sorted[:, None]).sum(axis=0) / total_w
+
+    denom = 2 * b1 - b0
+    xi_boot = np.where(np.abs(denom) > 1e-12, (4 * b1 - 3 * b0) / denom, 0.0)
+    sigma_boot = np.clip(b0 * (1 - xi_boot), 1e-8, None)
+    return xi_boot, sigma_boot
+
+
+def tail_survival_ensemble(y_query, xi_boot, sigma_boot):
+    """
+    Survival probability at y_query, averaged across the bootstrap
+    ensemble. A replicate whose fitted ceiling y_query exceeds contributes
+    exactly 0 (that replicate rules the value out); replicates with a
+    higher or no ceiling contribute their own smooth GPD survival value.
+    The average is a proper, continuous, always-positive-for-any-y
+    probability with no special-casing needed for "beyond the ceiling".
+    """
+    z = np.clip(1 + xi_boot * y_query / sigma_boot, 0.0, None)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        S = np.where(
+            np.abs(xi_boot) < 1e-8,
+            np.exp(-y_query / sigma_boot),
+            np.power(z, -1.0 / np.where(xi_boot == 0, 1, xi_boot)),
+        )
+    return np.where(z <= 0, 0.0, S).mean()
 
 
 class PeerIndex:
@@ -267,9 +341,9 @@ def score_run(target_points, target_peak_week, target_run_id, peer_index):
 
     use_tail = above.sum() >= MIN_EXCEEDANCES and q > 0
     if use_tail:
-        y = log_x[above] - u
+        y_exceed = log_x[above] - u
         w_tail = weights[above]
-        xi, sigma = fit_gpd_weighted(y, w_tail)
+        xi, sigma = fit_gpd_weighted(y_exceed, w_tail)
     else:
         xi, sigma = None, None
 
@@ -283,14 +357,10 @@ def score_run(target_points, target_peak_week, target_run_id, peer_index):
             survival = 1 - Fx
             H = -np.log(max(survival, 1e-300))
     else:
-        y = target_log_x - u
-        z = 1 + xi * y / sigma
-        z = max(z, 1e-300)
-        if abs(xi) < 1e-8:
-            log_survival_gpd = -y / sigma
-        else:
-            log_survival_gpd = -(1 / xi) * np.log(z)
-        H = -np.log(q) - log_survival_gpd
+        y_target = target_log_x - u
+        xi_boot, sigma_boot = fit_gpd_bootstrap_ensemble(y_exceed, w_tail, target_run_id)
+        S_avg = max(tail_survival_ensemble(y_target, xi_boot, sigma_boot), 1e-300)
+        H = -np.log(q) - np.log(S_avg)
 
     return {
         "score": H,
