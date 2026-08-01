@@ -1,9 +1,18 @@
 import argparse
 import os
 import pandas as pd
+import numpy as np
 
 from scripts.era_scoring import score_run, load_peer_summary, PeerIndex, WINDOW_WEEKS
 
+# Reference effective peer count for the volume-adjusted score (see below).
+# This is a FIXED constant, not recomputed per-run: it only shifts every
+# song's volume-adjusted score by the same amount, so its exact value has
+# zero effect on rankings -- it just sets what a "typical" adjusted score
+# looks like on the display scale. Picked to be roughly in the middle of
+# the range of n_eff actually seen across hot-100 history so the adjusted
+# column is easy to eyeball against the raw era_score column.
+V_REF_N_EFF = 2000
 
 def compute_era_scores(chart_name, mode="routine", runs_path=None, peer_summary_path=None, out_path=None):
     """
@@ -72,6 +81,7 @@ def compute_era_scores(chart_name, mode="routine", runs_path=None, peer_summary_
             "era_score": result["score"],
             "score_reason": result["reason"],
             "n_peers": result["n_peers"],
+            "n_eff": result.get("n_eff"),
         })
 
     new_scores = pd.DataFrame(records)
@@ -84,6 +94,31 @@ def compute_era_scores(chart_name, mode="routine", runs_path=None, peer_summary_
         combined = new_scores
 
     combined = combined.sort_values("peak_week").reset_index(drop=True)
+
+    # Volume-adjusted score: corrects for eras with very different chart
+    # throughput (e.g. Hot 100 volume swung from 600-700 songs/year in the
+    # 1960s and 2020s down to under 400 -- sometimes under 300 -- in the
+    # mid-90s through mid-2000s). era_score answers "how surprising was
+    # this specific performance, given everything else happening at the
+    # time" -- which correctly gives high-volume eras more top-N
+    # representation, since they genuinely produced more extreme outcomes.
+    # era_score_volume_adjusted instead answers "how surprising would this
+    # be if every era had the same typical number of contenders" -- a
+    # multiple-comparisons-style correction, additive in log-hazard space:
+    #   H_adjusted = H - log(n_eff) + log(V_REF)
+    # (using each run's own effective peer count rather than a raw yearly
+    # song count, since that properly discounts distant, low-weight peers
+    # instead of treating every peer in the +/-3-year window as a full
+    # "vote"). Confirmed by direct simulation: for a fixed target rate of
+    # calibrated hazard exceedances, this is the sign that actually
+    # equalizes expected top-N representation across eras of very
+    # different volume (a naive same-signed-as-H version instead made the
+    # imbalance worse, not better). Neither column is more "correct" than
+    # the other -- they answer different questions, and both are kept side
+    # by side rather than picking one.
+    combined["era_score_volume_adjusted"] = (
+        combined["era_score"] - np.log(combined["n_eff"]) + np.log(V_REF_N_EFF)
+    )
 
     out_dir = os.path.dirname(out_path)
     if out_dir:

@@ -245,6 +245,17 @@ def fit_gpd_bootstrap_ensemble(y, w, run_id, n_boot=N_BOOTSTRAP):
 
     denom = 2 * b1 - b0
     xi_boot = np.where(np.abs(denom) > 1e-12, (4 * b1 - 3 * b0) / denom, 0.0)
+    # Floor at just above -1: a GPD's density is only monotonically
+    # decreasing for xi > -1; below that it's U/J-shaped (increasing up to
+    # a spike at its own ceiling), which is not something any real fit in
+    # this dataset has ever approached (-0.25 to -0.78 observed), and is
+    # far more likely small-sample bootstrap noise than genuine signal. A
+    # handful of such replicates can inject small non-monotonic wiggles
+    # into the ensemble average (this was diagnosed from a real reported
+    # visual artifact -- confirmed 18% of replicates at xi<-1 in one
+    # reproducing case). Flooring here keeps every replicate individually
+    # well-behaved, so the ensemble average is guaranteed decreasing too.
+    xi_boot = np.clip(xi_boot, -0.999, None)
     sigma_boot = np.clip(b0 * (1 - xi_boot), 1e-8, None)
     return xi_boot, sigma_boot
 
@@ -266,6 +277,26 @@ def tail_survival_ensemble(y_query, xi_boot, sigma_boot):
             np.power(z, -1.0 / np.where(xi_boot == 0, 1, xi_boot)),
         )
     return np.where(z <= 0, 0.0, S).mean()
+
+
+def tail_density_ensemble(y_query, xi_boot, sigma_boot):
+    """
+    Average GPD density at y_query across the bootstrap ensemble --
+    the analytic companion to tail_survival_ensemble (its derivative),
+    used only for visualization. Computed directly from each replicate's
+    closed-form density rather than by numerically differentiating the
+    survival function, which avoids amplifying floating-point noise
+    through division by a small step size.
+    """
+    z = np.clip(1 + xi_boot * y_query / sigma_boot, 0.0, None)
+    xi_safe = np.where(xi_boot == 0, 1.0, xi_boot)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dens = np.where(
+            np.abs(xi_boot) < 1e-8,
+            np.exp(-y_query / sigma_boot) / sigma_boot,
+            (1 / sigma_boot) * np.power(z, -(1 / xi_safe + 1)),
+        )
+    return np.where(z <= 0, 0.0, dens).mean()
 
 
 class PeerIndex:
@@ -329,6 +360,10 @@ def score_run(target_points, target_peak_week, target_run_id, peer_index):
         return {"score": None, "reason": "insufficient_peers", "n_peers": len(points)}
 
     weights = temporal_weight(dists)
+    n_eff = (weights.sum()) ** 2 / (weights ** 2).sum()  # effective sample size,
+    # properly discounting distant/low-weight peers rather than treating every
+    # peer in the window as a full "vote" -- used for volume-adjusting scores
+    # across eras with very different chart throughput (see compute_era_scores.py)
 
     log_x = np.log(points)
     target_log_x = np.log(target_points)
@@ -371,4 +406,5 @@ def score_run(target_points, target_peak_week, target_run_id, peer_index):
         "gpd_xi": xi,
         "gpd_sigma": sigma,
         "used_tail_model": use_tail,
+        "n_eff": n_eff,
     }

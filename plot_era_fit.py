@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from scripts.era_scoring import (
     PeerIndex, load_peer_summary, temporal_weight, weighted_quantile,
     adaptive_bandwidths, bulk_pdf, fit_gpd_weighted, score_run,
-    fit_gpd_bootstrap_ensemble, tail_survival_ensemble,
+    fit_gpd_bootstrap_ensemble, tail_density_ensemble,
     WINDOW_WEEKS, TAIL_Q,
 )
 
@@ -90,14 +90,12 @@ def plot_era_fit(chart_name, title=None, artist=None, run_id=None,
         gpd_density = np.where(z <= 0, 0.0, gpd_density)
     gpd_density_scaled = q * gpd_density
 
-    # Ensemble curve -- this IS what scoring actually uses. Approximated via
-    # a numerical derivative of the ensemble-averaged survival function,
-    # using the same run_id-seeded ensemble score_run itself would use.
+    # Ensemble curve -- this IS what scoring actually uses. Computed
+    # directly from each replicate's closed-form density (not by numerically
+    # differentiating survival, which amplified floating-point noise into
+    # a visible wobble, especially for smaller peer pools).
     xi_boot, sigma_boot = fit_gpd_bootstrap_ensemble(log_x[above] - u, weights[above], target_run_id)
-    dy = 1e-4
-    S_plus = np.array([tail_survival_ensemble(y + dy, xi_boot, sigma_boot) for y in y_grid])
-    S_minus = np.array([tail_survival_ensemble(max(y - dy, 0.0), xi_boot, sigma_boot) for y in y_grid])
-    ensemble_density = np.clip(-(S_plus - S_minus) / (2 * dy), 0, None)
+    ensemble_density = np.array([tail_density_ensemble(y, xi_boot, sigma_boot) for y in y_grid])
     ensemble_density_scaled = q * ensemble_density
 
     fig, ax = plt.subplots(figsize=(10, 6))

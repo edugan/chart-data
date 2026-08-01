@@ -7,12 +7,22 @@ from scripts.scoring import SCORING_FUNCTIONS
 GAP_WEEKS = 26  # a run ends and a new one begins after this many weeks absent
 
 
-def build_chart_runs(chart_name, enriched_path=None, out_path=None):
+def build_chart_runs(chart_name, enriched_path=None, out_path=None, split_runs=True):
     """
-    Segments each song's chart history into distinct "runs" -- a run ends
-    and a new one begins whenever there's a gap of more than GAP_WEEKS
-    between consecutive chart appearances (e.g. a holiday song's yearly
-    returns, or a genuine resurgence, are each their own run).
+    Segments each song's chart history into "runs".
+
+    If split_runs=True (default): a run ends and a new one begins whenever
+    there's a gap of more than GAP_WEEKS between consecutive chart
+    appearances (e.g. a holiday song's yearly returns, or a genuine
+    resurgence, are each their own run).
+
+    If split_runs=False: a song/album's ENTIRE chart history becomes a
+    single run, regardless of gaps -- appropriate for charts where re-entry
+    behavior isn't meaningfully "a new run" (e.g. the Billboard 200 since
+    recurrent rules were dropped in 2009, where a catalog album like
+    Thriller or Rumours can chart on and off for decades and should have
+    all of that activity collected into one lifetime total, not fragmented
+    into many small disconnected runs).
 
     For each run, computes: peak week/position (first week the run's best
     position was reached), total points earned within that run only, the
@@ -36,11 +46,16 @@ def build_chart_runs(chart_name, enriched_path=None, out_path=None):
 
     df = df.sort_values(["song_id", "tracking_week_start", "chart_date"]).reset_index(drop=True)
 
-    # Flag the start of a new run: either the song's first-ever appearance,
-    # or a gap of more than GAP_WEEKS since its previous appearance.
+    # Flag the start of a new run: the song's first-ever appearance always
+    # starts one; a gap of more than GAP_WEEKS since the previous appearance
+    # starts another one too, UNLESS split_runs=False, in which case only
+    # the very first appearance ever counts -- the whole history is one run.
     prev_week = df.groupby("song_id")["tracking_week_start"].shift(1)
-    gap_days = (df["tracking_week_start"] - prev_week).dt.days
-    new_run_flag = prev_week.isna() | (gap_days > GAP_WEEKS * 7)
+    if split_runs:
+        gap_days = (df["tracking_week_start"] - prev_week).dt.days
+        new_run_flag = prev_week.isna() | (gap_days > GAP_WEEKS * 7)
+    else:
+        new_run_flag = prev_week.isna()
 
     df["run_number"] = new_run_flag.groupby(df["song_id"]).cumsum()
     df["run_id"] = df["song_id"] + "::" + df["run_number"].astype(str)
@@ -80,7 +95,7 @@ def build_chart_runs(chart_name, enriched_path=None, out_path=None):
 
     result.to_parquet(out_path, index=False)
     print(f"-> Saved {len(result)} runs to {out_path}")
-    # print(f"   Active runs (currently charting): {result['is_active'].sum()}")
+    print(f"   Active runs (currently charting): {result['is_active'].sum()}")
 
     return result
 
@@ -90,6 +105,15 @@ if __name__ == "__main__":
     parser.add_argument("--chart", default="hot-100")
     parser.add_argument("--enriched", default=None)
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--split-runs", action=argparse.BooleanOptionalAction, default=True,
+        help="Split a song's history into separate runs on >26wk gaps (default). "
+             "Use --no-split-runs to treat a song/album's entire chart history as "
+             "one lifetime run instead -- recommended for billboard-200 since "
+             "recurrent rules were dropped in 2009.",
+    )
     args = parser.parse_args()
 
-    build_chart_runs(args.chart, enriched_path=args.enriched, out_path=args.out)
+    build_chart_runs(
+        args.chart, enriched_path=args.enriched, out_path=args.out, split_runs=args.split_runs,
+    )
