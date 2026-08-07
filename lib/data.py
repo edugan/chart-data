@@ -24,14 +24,13 @@ def _chart_name_from_enriched_path(path):
 
 
 def _display_name(chart_name):
-    """Human-friendly label. Falls back to the raw slug if no config is found."""
-    try:
-        from scripts.chart_config import CHART_URL_SLUGS  # optional, may not exist
-        for label, slug in CHART_URL_SLUGS.items():
-            if slug == chart_name:
-                return label
-    except Exception:
-        pass
+    """
+    Human-friendly label, derived uniformly from the slug (not looked up from
+    scripts/chart_config.py -- that file's CHART_URL_SLUGS turned out to have
+    inconsistent formatting across charts, e.g. "hot-100" stored verbatim
+    while "alt-radio" was stored as "Alt Radio", so relying on it produced
+    inconsistent-looking labels in the chart selector).
+    """
     return chart_name.replace("-", " ").title()
 
 

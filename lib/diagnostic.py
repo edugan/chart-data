@@ -10,7 +10,7 @@ import tempfile
 import os
 import streamlit as st
 
-import plot_era_fit
+from plot_era_fit import plot_era_fit
 
 
 @st.cache_resource(show_spinner="Fitting era model for this run...")

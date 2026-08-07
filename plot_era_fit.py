@@ -69,6 +69,16 @@ def plot_era_fit(chart_name, title=None, artist=None, run_id=None,
 
     result = score_run(target_points, target_week, target_run_id, peer_index)
 
+    # Score can legitimately be None (score_reason="insufficient_peers") for
+    # runs whose peer window didn't have enough data for a stable tail fit --
+    # thinner/newer charts hit this far more often than e.g. hot-100. Format
+    # defensively so that case prints/plots a clear label instead of crashing
+    # on f"{None:.3f}".
+    if result["score"] is not None:
+        score_display = f"{result['score']:.3f}"
+    else:
+        score_display = f"N/A ({result['reason']})"
+
     # --- build the plot ---
     grid_max = max(log_x.max(), target_log_x) + 0.5
     grid = np.linspace(log_x.min() - 0.3, grid_max, 500)
@@ -113,7 +123,7 @@ def plot_era_fit(chart_name, title=None, artist=None, run_id=None,
     ax.set_xlabel("log(run total points)")
     ax.set_ylabel("density")
     title_str = f"{row['title']} -- {chart_name}, peak week {target_week.date()}\n"
-    title_str += f"score={result['score']:.3f}  n_peers={result['n_peers']}  window=±{window}wk"
+    title_str += f"score={score_display}  n_peers={result['n_peers']}  window=±{window}wk"
     ax.set_title(title_str)
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -128,7 +138,7 @@ def plot_era_fit(chart_name, title=None, artist=None, run_id=None,
     print(f"  peak_week={target_week.date()}  points={target_points:.4f}  log_points={target_log_x:.4f}")
     print(f"  n_peers={result['n_peers']}  threshold u={u:.4f}  tail_q_actual={q:.4f}")
     print(f"  gpd_xi={xi:.4f}  gpd_sigma={sigma:.4f}")
-    print(f"  SCORE={result['score']:.4f}")
+    print(f"  SCORE={score_display}")
 
     return fig, result
 

@@ -73,14 +73,32 @@ if chart["has_scoring"]:
         choice = st.selectbox(
             "Pick a run to inspect (from the filtered table above, first 200 shown)",
             options.index, format_func=lambda i: labels.loc[i] if i in labels.index else str(i),
+            key="diag_choice",
         )
-        if choice is not None:
-            run_id = options.loc[choice, "run_id"]
-            fig, result = get_era_fit_figure(
-                chart_name, run_id, _mtime(chart["paths"]["runs"]),
-            )
-            st.pyplot(fig)
-            st.json({k: v for k, v in result.items() if k != "score" or True})
+        # Gated behind an explicit button: this recomputes a full peer fit,
+        # and must NOT run automatically on every rerun of the whole script
+        # (Streamlit reruns top-to-bottom on any widget interaction anywhere,
+        # including in other tabs) -- an auto-run here previously meant one
+        # bad run (e.g. insufficient peer data on a thinner chart) crashed
+        # every tab, every time, not just this one.
+        if st.button("Generate diagnostic plot", key="diag_button") and choice is not None:
+            st.session_state[f"diag_run_id::{chart_name}"] = options.loc[choice, "run_id"]
+
+        active_run_id = st.session_state.get(f"diag_run_id::{chart_name}")
+        if active_run_id is not None:
+            try:
+                fig, result = get_era_fit_figure(
+                    chart_name, active_run_id, _mtime(chart["paths"]["runs"]),
+                )
+                st.pyplot(fig)
+                st.json(result)
+            except Exception as e:
+                st.warning(
+                    f"Couldn't build a diagnostic for this run ({e.__class__.__name__}: {e}). "
+                    "This is often expected for runs with score_reason='insufficient_peers' "
+                    "(not enough peer data for a stable tail fit) -- check the row's n_peers "
+                    "in the table above."
+                )
 
     with tabs[2]:
         st.caption(
