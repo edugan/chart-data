@@ -7,6 +7,8 @@ overall-rank columns are opt-in (computed only when requested).
 import pandas as pd
 import streamlit as st
 
+from lib.time_utils import sorted_desc, week_choices
+
 
 def build_leaderboard_base(runs, era_scores, enriched):
     """
@@ -23,7 +25,7 @@ def build_leaderboard_base(runs, era_scores, enriched):
     base = runs.merge(scores, on="run_id", how="left")
 
     enriched_meta = (
-        enriched[["song_id", "tracking_week_start", "current_position", "year", "quarter", "decade"]]
+        enriched[["song_id", "tracking_week_start", "current_position", "year", "quarter", "decade", "chart_date"]]
         .drop_duplicates(subset=["song_id", "tracking_week_start"])
     )
 
@@ -31,6 +33,7 @@ def build_leaderboard_base(runs, era_scores, enriched):
         enriched_meta.rename(columns={
             "current_position": "debut_position", "year": "debut_year",
             "quarter": "debut_quarter", "decade": "debut_decade",
+            "chart_date": "debut_chart_date",
         }),
         left_on=["song_id", "run_start_week"], right_on=["song_id", "tracking_week_start"],
         how="left",
@@ -43,12 +46,13 @@ def build_leaderboard_base(runs, era_scores, enriched):
         left_on=["song_id", "peak_week"], right_on=["song_id", "tracking_week_start"],
         how="left",
     ).drop(columns=["tracking_week_start"])
+    # peak_chart_date already exists on runs.parquet directly -- no need to refetch it.
 
     return base
 
 
 def leaderboard_filters(base, key_prefix="lb"):
-    """Renders the filter/sort widgets. Returns (filtered_df, sort_col, ascending, frame_basis, rank_requested)."""
+    """Renders the filter/sort widgets. Returns the filtered, sorted dataframe."""
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -57,6 +61,7 @@ def leaderboard_filters(base, key_prefix="lb"):
             key=f"{key_prefix}_basis", horizontal=True,
         )
     week_col = "run_start_week" if frame_basis == "Debut" else "peak_week"
+    chart_date_col = "debut_chart_date" if frame_basis == "Debut" else "peak_chart_date"
     year_col = f"{frame_basis.lower()}_year"
     quarter_col = f"{frame_basis.lower()}_quarter"
     decade_col = f"{frame_basis.lower()}_decade"
@@ -69,37 +74,72 @@ def leaderboard_filters(base, key_prefix="lb"):
         )
     with col3:
         pos_mode = st.radio(
-            "Position filter", ["All positions", f"Exact {frame_basis.lower()} #k", "Top N"],
+            "Position filter",
+            ["All positions", f"Exact {frame_basis.lower()} #k", f"{frame_basis} in Top N"],
             key=f"{key_prefix}_posmode",
         )
 
     mask = base.index == base.index
     if granularity == "Decade":
-        options = sorted(base[decade_col].dropna().unique())
+        options = sorted_desc(base[decade_col])
         value = st.selectbox("Decade", options, key=f"{key_prefix}_decade")
         mask &= base[decade_col] == value
     elif granularity == "Year":
-        options = sorted(base[year_col].dropna().unique())
+        options = sorted_desc(base[year_col])
         value = st.selectbox("Year", options, key=f"{key_prefix}_year")
         mask &= base[year_col] == value
     elif granularity == "Quarter":
-        options = sorted(base[quarter_col].dropna().unique())
+        options = sorted_desc(base[quarter_col])
         value = st.selectbox("Quarter", options, key=f"{key_prefix}_quarter")
         mask &= base[quarter_col] == value
     elif granularity == "Week":
-        options = sorted(base[week_col].dropna().unique())
-        value = st.selectbox("Week", options, key=f"{key_prefix}_week", format_func=lambda d: str(d)[:10])
-        mask &= base[week_col] == value
+        choices = week_choices(base, week_col, chart_date_col)
+        idx = st.selectbox(
+            "Week (chart date)", range(len(choices)), key=f"{key_prefix}_week",
+            format_func=lambda i: choices[i][1],
+        )
+        mask &= base[week_col] == choices[idx][0]
 
     max_pos = int(base[pos_col].max())
     if pos_mode.startswith("Exact"):
         k = st.number_input("k", min_value=1, max_value=max_pos, value=1, key=f"{key_prefix}_k")
         mask &= base[pos_col] == k
-    elif pos_mode == "Top N":
+    elif pos_mode.endswith("Top N"):
         n = st.number_input("N", min_value=1, max_value=max_pos, value=10, key=f"{key_prefix}_n")
         mask &= base[pos_col] <= n
 
     filtered = base[mask].copy()
+
+    with st.expander("Rank filter: top-K per period (applied on top of the filters above)"):
+        rf_enabled = st.checkbox("Enable", key=f"{key_prefix}_rf_on")
+        rf1, rf2, rf3 = st.columns(3)
+        with rf1:
+            rf_granularity = st.selectbox("Group by", ["Decade", "Year", "Quarter"], key=f"{key_prefix}_rf_gran")
+        with rf2:
+            rf_metric_choice = st.selectbox("Metric", ["Raw points", "Era score"], key=f"{key_prefix}_rf_metric")
+        with rf3:
+            rf_mode = st.radio("Mode", ["Kth biggest", "Top N biggest"], key=f"{key_prefix}_rf_mode")
+        rf_k = st.number_input(
+            "k" if rf_mode == "Kth biggest" else "N", min_value=1,
+            value=1 if rf_mode == "Kth biggest" else 5, key=f"{key_prefix}_rf_k",
+        )
+        st.caption(
+            f"Groups by {frame_basis.lower()} {rf_granularity.lower()} (uses the frame basis "
+            "chosen above) and keeps only each group's biggest song(s) by the chosen metric, "
+            "computed over whatever's already passed the time/position filters above."
+        )
+
+    if rf_enabled:
+        rf_group_col = {"Decade": decade_col, "Year": year_col, "Quarter": quarter_col}[rf_granularity]
+        rf_metric_col = "run_total_points" if rf_metric_choice == "Raw points" else "era_score"
+        filtered["period_rank"] = (
+            filtered.groupby(rf_group_col)[rf_metric_col].rank(method="min", ascending=False)
+        )
+        if rf_mode == "Kth biggest":
+            filtered = filtered[filtered["period_rank"] == rf_k]
+        else:
+            filtered = filtered[filtered["period_rank"] <= rf_k]
+        filtered["period_rank"] = filtered["period_rank"].astype("Int64")
 
     sort_choice = st.selectbox(
         "Sort by",

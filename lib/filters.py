@@ -5,9 +5,12 @@ since chart weeks aren't always exactly 7 days apart.
 """
 import streamlit as st
 
+from lib.time_utils import sorted_desc, week_choices
+
 
 def time_frame_widget(df, key_prefix, week_col="tracking_week_start",
-                       year_col="year", quarter_col="quarter", decade_col="decade"):
+                       year_col="year", quarter_col="quarter", decade_col="decade",
+                       chart_date_col="chart_date"):
     """Renders granularity + value selectors. Returns a boolean mask (all True if 'All time')."""
     granularity = st.selectbox(
         "Time frame", ["All time", "Decade", "Year", "Quarter", "Week"],
@@ -18,27 +21,29 @@ def time_frame_widget(df, key_prefix, week_col="tracking_week_start",
         return df.index == df.index  # all True, same length/index as df
 
     if granularity == "Decade":
-        options = sorted(df[decade_col].dropna().unique())
+        options = sorted_desc(df[decade_col])
         value = st.selectbox("Decade", options, key=f"{key_prefix}_decade")
         return df[decade_col] == value
 
     if granularity == "Year":
-        options = sorted(df[year_col].dropna().unique())
+        options = sorted_desc(df[year_col])
         value = st.selectbox("Year", options, key=f"{key_prefix}_year")
         return df[year_col] == value
 
     if granularity == "Quarter":
-        options = sorted(df[quarter_col].dropna().unique())
+        options = sorted_desc(df[quarter_col])
         value = st.selectbox("Quarter", options, key=f"{key_prefix}_quarter")
         return df[quarter_col] == value
 
-    # Week
-    options = sorted(df[week_col].dropna().unique())
-    value = st.selectbox(
-        "Week", options, key=f"{key_prefix}_week",
-        format_func=lambda d: str(d)[:10],
+    # Week -- label shows the published chart date, filtering still keys off
+    # week_col (tracking_week_start), since that's the internal anchor used
+    # for joins elsewhere.
+    choices = week_choices(df, week_col, chart_date_col)
+    idx = st.selectbox(
+        "Week (chart date)", range(len(choices)), key=f"{key_prefix}_week",
+        format_func=lambda i: choices[i][1],
     )
-    return df[week_col] == value
+    return df[week_col] == choices[idx][0]
 
 
 def position_widget(df, key_prefix, position_col="current_position"):

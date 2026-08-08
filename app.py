@@ -8,6 +8,7 @@ from lib.filters import raw_explorer_filters
 from lib.leaderboard import build_leaderboard_base, leaderboard_filters
 from lib.frame_view import frame_standings_widget
 from lib.diagnostic import get_era_fit_figure
+from lib.display import clean_for_display
 
 st.set_page_config(page_title="Billboard Chart Explorer", layout="wide")
 st.title("Billboard Chart Explorer")
@@ -41,7 +42,10 @@ with tabs[0]:
     )
     filtered = raw_explorer_filters(enriched)
     st.write(f"{len(filtered):,} rows")
-    st.dataframe(filtered, use_container_width=True, height=500)
+    st.dataframe(
+        clean_for_display(filtered, date_cols=["tracking_week_start"]),
+        use_container_width=True, height=500,
+    )
 
 if chart["has_scoring"]:
     runs = get_runs(chart)
@@ -61,8 +65,11 @@ if chart["has_scoring"]:
             "run_start_week", "debut_position", "peak_week", "peak_position",
             "is_finalized", "n_peers",
         ]
-        display_cols += [c for c in ("rank_within_frame", "rank_overall") if c in lb_filtered.columns]
-        st.dataframe(lb_filtered[display_cols], use_container_width=True, height=400)
+        display_cols += [c for c in ("period_rank", "rank_within_frame", "rank_overall") if c in lb_filtered.columns]
+        st.dataframe(
+            clean_for_display(lb_filtered[display_cols], date_cols=["run_start_week", "peak_week"]),
+            use_container_width=True, height=400,
+        )
 
         st.subheader("Diagnostic drill-down")
         options = lb_filtered.head(200)  # cap the picker to a sane size
@@ -109,4 +116,4 @@ if chart["has_scoring"]:
         )
         standings = frame_standings_widget(enriched, chart_name, _mtime(chart["paths"]["enriched"]))
         st.write(f"{len(standings):,} songs")
-        st.dataframe(standings, use_container_width=True, height=500)
+        st.dataframe(clean_for_display(standings), use_container_width=True, height=500)

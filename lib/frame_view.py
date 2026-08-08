@@ -10,6 +10,7 @@ import pandas as pd
 
 from scripts.scoring import SCORING_FUNCTIONS
 from scripts.frame_standings import compute_frame_standings
+from lib.time_utils import sorted_desc, week_choices
 
 
 @st.cache_data(show_spinner="Computing points for every chart row...")
@@ -31,27 +32,34 @@ def frame_standings_widget(enriched, chart_name, mtime_key, key_prefix="frame"):
     )
 
     if granularity == "Decade":
-        options = sorted(df_with_points["decade"].dropna().unique())
+        options = sorted_desc(df_with_points["decade"])
         value = st.selectbox("Decade", options, key=f"{key_prefix}_decade")
         sub = df_with_points[df_with_points["decade"] == value]
     elif granularity == "Year":
-        options = sorted(df_with_points["year"].dropna().unique())
+        options = sorted_desc(df_with_points["year"])
         value = st.selectbox("Year", options, key=f"{key_prefix}_year")
         sub = df_with_points[df_with_points["year"] == value]
     elif granularity == "Quarter":
-        options = sorted(df_with_points["quarter"].dropna().unique())
+        options = sorted_desc(df_with_points["quarter"])
         value = st.selectbox("Quarter", options, key=f"{key_prefix}_quarter")
         sub = df_with_points[df_with_points["quarter"] == value]
     else:
-        weeks = sorted(df_with_points["tracking_week_start"].dropna().unique())
+        # Labels show the published chart date; the underlying value used
+        # for filtering is still tracking_week_start. Choices come back
+        # most-recent-first, so index 0 = most recent, index -1 = earliest.
+        choices = week_choices(df_with_points, "tracking_week_start", "chart_date")
         c1, c2 = st.columns(2)
         with c1:
-            start = st.selectbox("Start week", weeks, index=0, key=f"{key_prefix}_start",
-                                  format_func=lambda d: str(d)[:10])
+            start_idx = st.selectbox(
+                "Start week (chart date)", range(len(choices)), index=len(choices) - 1,
+                key=f"{key_prefix}_start", format_func=lambda i: choices[i][1],
+            )
         with c2:
-            end = st.selectbox("End week", weeks, index=len(weeks) - 1, key=f"{key_prefix}_end",
-                                format_func=lambda d: str(d)[:10])
-        sub = df_with_points
+            end_idx = st.selectbox(
+                "End week (chart date)", range(len(choices)), index=0,
+                key=f"{key_prefix}_end", format_func=lambda i: choices[i][1],
+            )
+        start, end = choices[start_idx][0], choices[end_idx][0]
 
     if granularity == "Custom range":
         start_date, end_date = start, end
