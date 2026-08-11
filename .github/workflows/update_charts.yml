@@ -1,0 +1,45 @@
+name: Update Billboard chart data
+
+on:
+  schedule:
+    # Billboard typically publishes new chart dates on Tuesdays; Wednesday
+    # morning UTC gives a buffer. Cron is UTC. Safe to run more than once a
+    # week if you want faster catch-up after a miss -- backfill.py only
+    # actually fetches genuinely new weeks either way.
+    - cron: "0 12 * * 3"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write  # needed to commit the refreshed data/ files back to the repo
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline for all charts
+        run: python run_pipeline.py
+
+      # if: always() is deliberate: run_pipeline.py isolates failures
+      # per-chart already, but the whole script still exits non-zero if any
+      # chart failed. Without always(), a single failing chart would
+      # discard the successfully updated data for every OTHER chart too,
+      # since this step would just be skipped after a failed prior step.
+      - name: Commit and push updated data
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "Automated chart data update ($(date -u +'%Y-%m-%d'))"
+          git push

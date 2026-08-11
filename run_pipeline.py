@@ -1,0 +1,78 @@
+"""
+Runs the full processing chain for every chart in scripts/chart_config.CHARTS:
+backfill (scrape any new weeks) -> enrich -> runs -> weekly peer summary ->
+era scores (routine mode) -> chart totals.
+
+Meant to be invoked by the scheduled GitHub Actions workflow, but works
+identically run locally (`python run_pipeline.py` or
+`python run_pipeline.py --charts hot-100` to test just one chart without
+touching the others).
+
+Each chart is fully independent: if one chart's scrape or a downstream step
+throws, that failure is logged and the run moves on to the rest -- a single
+flaky request or a not-yet-published chart week should never block the other
+charts from getting their update. The script exits non-zero if ANY chart
+failed, so a scheduled run is still visibly flagged even though the charts
+that succeeded still got their data committed (see the workflow yaml, which
+commits with `if: always()` for exactly this reason).
+"""
+import argparse
+import sys
+import traceback
+from datetime import date
+
+from scripts.chart_config import CHARTS
+from backfill import backfill
+from build_enriched_dataset import build_enriched_dataset
+from build_chart_runs import build_chart_runs
+from build_weekly_peer_summary import build_weekly_peer_summary
+from compute_era_scores import compute_era_scores
+from build_chart_totals import build_chart_totals
+
+
+def run_chart(chart_name, start_date, end_date):
+    print(f"\n{'=' * 70}\n{chart_name}\n{'=' * 70}")
+
+    raw_path = f"data/raw/{chart_name}.csv"
+    backfill(chart_name, start_date=start_date, end_date=end_date, out_path=raw_path)
+
+    build_enriched_dataset(chart_name)
+    build_chart_runs(chart_name)  # split_runs=True default, per current policy for every chart
+    build_weekly_peer_summary(chart_name)  # min_weeks_for_peer=1 default, unchanged
+    compute_era_scores(chart_name, mode="routine")
+    build_chart_totals(chart_name)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--charts", default=None,
+        help="Comma-separated chart names to run (default: all charts in CHARTS).",
+    )
+    args = parser.parse_args()
+
+    chart_names = args.charts.split(",") if args.charts else list(CHARTS.keys())
+    today = date.today().isoformat()
+    failures = []
+
+    for chart_name in chart_names:
+        if chart_name not in CHARTS:
+            print(f"!!! Skipping unknown chart '{chart_name}' (not in scripts/chart_config.CHARTS)")
+            failures.append(chart_name)
+            continue
+        try:
+            run_chart(chart_name, CHARTS[chart_name]["start_date"], today)
+        except Exception:
+            print(f"\n!!! {chart_name} FAILED:")
+            traceback.print_exc()
+            failures.append(chart_name)
+
+    print(f"\n{'=' * 70}")
+    if failures:
+        print(f"Done, but with failures in: {failures}")
+        sys.exit(1)
+    print("All charts updated successfully.")
+
+
+if __name__ == "__main__":
+    main()
