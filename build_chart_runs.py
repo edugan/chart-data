@@ -71,6 +71,7 @@ def build_chart_runs(chart_name, enriched_path=None, out_path=None, split_runs=T
         run_total_points=("points", "sum"),
         run_start_week=("tracking_week_start", "min"),
         run_end_week=("tracking_week_start", "max"),
+        n_weeks_charted=("tracking_week_start", "size"),
     )
 
     # Peak: the first row (chronologically within the run) achieving the

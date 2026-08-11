@@ -33,23 +33,18 @@ def load_peer_summary(path):
     return df
 
 WINDOW_WEEKS = 156   # +/- 3 years: peers outside this are never considered
-HALF_WEIGHT_WEEKS = 52  # +/- 1 year: roughly half the total weight lives here
+HALF_WEIGHT_WEEKS = 40  # +/- 1 year: roughly half the total weight lives here
 TAIL_Q = 0.05        # top 5% of peers modeled by the GPD tail instead of the KDE
 MIN_EXCEEDANCES = 8  # below this, fall back to pure bulk model (no tail fit)
 
 # Kernel weight: w(d) = (1 - (d/WINDOW_WEEKS)^2)^P_EXPONENT for |d| <= WINDOW_WEEKS,
 # else 0. P_EXPONENT is calibrated so that +/-HALF_WEIGHT_WEEKS captures exactly
-# half the total weight under the kernel. Solved once via:
-#
-#   from scipy import integrate, optimize
-#   def I(p, a):
-#       return integrate.quad(lambda u: (1 - u**2)**p, 0, a)[0]
-#   a = HALF_WEIGHT_WEEKS / WINDOW_WEEKS
-#   p = optimize.brentq(lambda p: I(p, a)/I(p, 1.0) - 0.5, 0.001, 50)
-#
-# which gives p ~= 1.163082 for the 3-year window / 1-year half-weight point.
-# Hardcoded here so scoring doesn't re-solve this integral on every call.
-P_EXPONENT = 1.163082
+# half the total weight under the kernel. Solved via:
+from scipy import integrate, optimize
+def I(p, a):
+    return integrate.quad(lambda u: (1 - u**2)**p, 0, a)[0]
+a = HALF_WEIGHT_WEEKS / WINDOW_WEEKS
+P_EXPONENT = optimize.brentq(lambda p: I(p, a)/I(p, 1.0) - 0.5, 0.001, 50)
 
 
 def temporal_weight(distance_weeks):

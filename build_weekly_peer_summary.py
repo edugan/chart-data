@@ -4,7 +4,7 @@ import pandas as pd
 import json
 
 
-def build_weekly_peer_summary(chart_name, runs_path=None, out_path=None):
+def build_weekly_peer_summary(chart_name, runs_path=None, out_path=None, min_weeks_for_peer=1):
     """
     Aggregates closed (non-active) runs by peak week, storing each week's
     raw list of run_total_points values. This is the pre-summarized table
@@ -14,12 +14,25 @@ def build_weekly_peer_summary(chart_name, runs_path=None, out_path=None):
     Active runs are excluded entirely here, since they're never used as
     peers -- they only ever get scored themselves, using this same summary
     for their peer pool.
+
+    min_weeks_for_peer: a run must have charted for at least this many
+    distinct weeks to be eligible as a peer for OTHER runs (default 1 --
+    no filtering, matches prior behavior). Raising this excludes one- or
+    two-week "album bomb" entries from the reference distribution used to
+    judge everyone else's rarity -- these entries were never real
+    contenders for the top of the chart, and padding the bottom of a
+    peer pool with them mechanically inflates how rare every genuine hit
+    looks, without anything about the actual competitive landscape at the
+    top having changed. This does NOT affect whether a short run gets
+    scored itself -- only whether it's used as evidence for others.
     """
+
     runs_path = runs_path or f"data/processed/{chart_name}_runs.parquet"
     out_path = out_path or f"data/processed/{chart_name}_weekly_peer_summary.parquet"
 
     runs = pd.read_parquet(runs_path)
-    closed = runs[~runs["is_active"]]
+    print(runs["n_weeks_charted"].value_counts().sort_index().head(10))
+    closed = runs[(~runs["is_active"]) & (runs["n_weeks_charted"] >= min_weeks_for_peer)]
 
     summary = (
         closed.groupby("peak_week")
@@ -60,6 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--chart", default="hot-100")
     parser.add_argument("--runs", default=None)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--min-weeks-for-peer", type=int, default=1)
     args = parser.parse_args()
 
-    build_weekly_peer_summary(args.chart, runs_path=args.runs, out_path=args.out)
+    build_weekly_peer_summary(args.chart, runs_path=args.runs, out_path=args.out, min_weeks_for_peer=args.min_weeks_for_peer)

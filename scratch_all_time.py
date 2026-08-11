@@ -6,8 +6,8 @@ def check_chart_totals(chart_name):
 
     totals = pd.read_parquet(totals_path)
     # print(totals.columns)
-    totals = totals.sort_values(by='era_score_volume_adjusted', ascending=False)
-    print(totals[["title", "artist_name", "peak_week", "run_total_points", "era_score", "era_score_volume_adjusted"]].head(100).to_string())
+    totals = totals.sort_values(by='era_score', ascending=False)
+    print(totals[["title", "artist_name", "peak_week", "era_score"]].head(50).to_string())
     # min_year = totals['peak_year'].min()
     # max_year = totals['peak_year'].max()
     
