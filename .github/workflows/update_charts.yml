@@ -8,16 +8,20 @@ on:
     # shift by an hour each way around the March/November DST changeovers if
     # you want to hold the same local time year-round; GitHub Actions cron
     # has no timezone support, so the schedule itself doesn't auto-adjust.
+    # Minutes are deliberately NOT :00 -- GitHub's own docs warn that
+    # schedules right on the hour are the most likely to be delayed or
+    # dropped during high platform load, since that's when everyone else's
+    # :00 schedules fire too.
     # Each run only actually does work for charts that aren't caught up yet
     # -- see next_chart_date_target() in run_pipeline.py -- so there's no
     # need to track "already checked" separately; a chart that already has
     # this week's data just makes zero HTTP requests on the later runs.
-    - cron: "0 10 * * 2"   # Tue ~6am ET
-    - cron: "0 12 * * 2"   # Tue ~8am ET
-    - cron: "0 14 * * 2"   # Tue ~10am ET
-    - cron: "0 10 * * 3"   # Wed ~6am ET (only matters if Tuesday's checks came up empty)
-    - cron: "0 12 * * 3"   # Wed ~8am ET
-    - cron: "0 14 * * 3"   # Wed ~10am ET
+    - cron: "13 10 * * 2"   # Tue ~6am ET
+    - cron: "13 12 * * 2"   # Tue ~8am ET
+    - cron: "13 14 * * 2"   # Tue ~10am ET
+    - cron: "13 10 * * 3"   # Wed ~6am ET (only matters if Tuesday's checks came up empty)
+    - cron: "13 12 * * 3"   # Wed ~8am ET
+    - cron: "13 14 * * 3"   # Wed ~10am ET
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 permissions:
