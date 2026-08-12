@@ -19,7 +19,7 @@ commits with `if: always()` for exactly this reason).
 import argparse
 import sys
 import traceback
-from datetime import date
+from datetime import date, timedelta
 
 from scripts.chart_config import CHARTS
 from backfill import backfill
@@ -28,6 +28,23 @@ from build_chart_runs import build_chart_runs
 from build_weekly_peer_summary import build_weekly_peer_summary
 from compute_era_scores import compute_era_scores
 from build_chart_totals import build_chart_totals
+
+
+def next_chart_date_target(today=None):
+    """
+    The chart date actually worth checking for as of today. Billboard labels
+    each week's chart with the UPCOMING Saturday but publishes it days
+    earlier (typically the preceding Tuesday) -- so on a normal Tuesday,
+    "today" itself is not a valid chart date, and generate_chart_dates()
+    would never include the Saturday that's actually live right now if we
+    naively used date.today() as the end_date. All 5 current charts are
+    Saturday-dated in the modern era (none predate the 1962 switch), so
+    "next Saturday on or after today" is the correct target across the
+    board. If today already IS that Saturday, this returns today unchanged.
+    """
+    today = today or date.today()
+    days_ahead = (5 - today.weekday()) % 7  # Monday=0 ... Saturday=5
+    return (today + timedelta(days=days_ahead)).isoformat()
 
 
 def run_chart(chart_name, start_date, end_date):
@@ -52,7 +69,8 @@ def main():
     args = parser.parse_args()
 
     chart_names = args.charts.split(",") if args.charts else list(CHARTS.keys())
-    today = date.today().isoformat()
+    target_date = next_chart_date_target()
+    print(f"Target chart date for this run: {target_date}")
     failures = []
 
     for chart_name in chart_names:
@@ -61,7 +79,7 @@ def main():
             failures.append(chart_name)
             continue
         try:
-            run_chart(chart_name, CHARTS[chart_name]["start_date"], today)
+            run_chart(chart_name, CHARTS[chart_name]["start_date"], target_date)
         except Exception:
             print(f"\n!!! {chart_name} FAILED:")
             traceback.print_exc()

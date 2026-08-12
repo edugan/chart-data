@@ -31,7 +31,7 @@ def build_weekly_peer_summary(chart_name, runs_path=None, out_path=None, min_wee
     out_path = out_path or f"data/processed/{chart_name}_weekly_peer_summary.parquet"
 
     runs = pd.read_parquet(runs_path)
-    print(runs["n_weeks_charted"].value_counts().sort_index().head(10))
+    # print(runs["n_weeks_charted"].value_counts().sort_index().head(10))
     closed = runs[(~runs["is_active"]) & (runs["n_weeks_charted"] >= min_weeks_for_peer)]
 
     summary = (

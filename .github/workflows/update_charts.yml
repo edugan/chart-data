@@ -2,11 +2,22 @@ name: Update Billboard chart data
 
 on:
   schedule:
-    # Billboard typically publishes new chart dates on Tuesdays; Wednesday
-    # morning UTC gives a buffer. Cron is UTC. Safe to run more than once a
-    # week if you want faster catch-up after a miss -- backfill.py only
-    # actually fetches genuinely new weeks either way.
-    - cron: "0 12 * * 3"
+    # Billboard usually publishes Tuesday mornings, occasionally slipping to
+    # Wednesday (e.g. after a Monday holiday). These times are UTC and
+    # correspond to roughly 6am/8am/10am US Eastern during EDT (UTC-4) --
+    # shift by an hour each way around the March/November DST changeovers if
+    # you want to hold the same local time year-round; GitHub Actions cron
+    # has no timezone support, so the schedule itself doesn't auto-adjust.
+    # Each run only actually does work for charts that aren't caught up yet
+    # -- see next_chart_date_target() in run_pipeline.py -- so there's no
+    # need to track "already checked" separately; a chart that already has
+    # this week's data just makes zero HTTP requests on the later runs.
+    - cron: "0 10 * * 2"   # Tue ~6am ET
+    - cron: "0 12 * * 2"   # Tue ~8am ET
+    - cron: "0 14 * * 2"   # Tue ~10am ET
+    - cron: "0 10 * * 3"   # Wed ~6am ET (only matters if Tuesday's checks came up empty)
+    - cron: "0 12 * * 3"   # Wed ~8am ET
+    - cron: "0 14 * * 3"   # Wed ~10am ET
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 permissions:
