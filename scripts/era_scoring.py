@@ -33,7 +33,7 @@ def load_peer_summary(path):
     return df
 
 WINDOW_WEEKS = 156   # +/- 3 years: peers outside this are never considered
-HALF_WEIGHT_WEEKS = 40  # +/- 1 year: roughly half the total weight lives here
+HALF_WEIGHT_WEEKS = 52  # +/- 1 year: roughly half the total weight lives here
 TAIL_Q = 0.05        # top 5% of peers modeled by the GPD tail instead of the KDE
 MIN_EXCEEDANCES = 8  # below this, fall back to pure bulk model (no tail fit)
 
