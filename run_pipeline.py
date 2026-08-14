@@ -56,7 +56,7 @@ def run_chart(chart_name, start_date, end_date):
     build_enriched_dataset(chart_name)
     build_chart_runs(chart_name)  # split_runs=True default, per current policy for every chart
     build_weekly_peer_summary(chart_name)  # min_weeks_for_peer=1 default, unchanged
-    compute_era_scores(chart_name, mode="routine")
+    compute_era_scores(chart_name, mode="global")
     build_chart_totals(chart_name)
 
 
