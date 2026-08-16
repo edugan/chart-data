@@ -9,7 +9,7 @@ from lib.leaderboard import build_leaderboard_base, leaderboard_filters
 from lib.frame_view import frame_standings_widget
 from lib.diagnostic import get_era_fit_figure
 from lib.display import clean_for_display
-from lib.song_history import build_song_history_figure
+from lib.song_history import render_song_history_section
 
 st.set_page_config(page_title="Billboard Chart Explorer", layout="wide")
 st.title("Billboard Chart Explorer")
@@ -56,33 +56,7 @@ with tabs[0]:
         use_container_width=True, height=500,
     )
 
-    st.subheader("Song chart run")
-    song_options = filtered[["song_id", "title", "artist_name"]].drop_duplicates().head(200)
-    song_labels = song_options["title"] + " -- " + song_options["artist_name"]
-    song_choice = st.selectbox(
-        "Pick a song to visualize (from the filtered table above, first 200 shown)",
-        song_options.index,
-        format_func=lambda i: song_labels.loc[i] if i in song_labels.index else str(i),
-        key="song_viz_choice",
-    )
-    # Same gating pattern as the diagnostic drill-down: only compute on an
-    # explicit click, and isolate failures so a bad song can't crash every
-    # other tab (Streamlit reruns the whole script top-to-bottom regardless
-    # of which tab is visually active).
-    if st.button("Show chart run", key="song_viz_button") and song_choice is not None:
-        st.session_state[f"song_viz_id::{chart_name}"] = song_options.loc[song_choice, "song_id"]
-
-    active_song_id = st.session_state.get(f"song_viz_id::{chart_name}")
-    if active_song_id is not None:
-        try:
-            # Full history for this song, independent of the filters above --
-            # the whole point is seeing runs the current filter might exclude.
-            song_df = enriched[enriched["song_id"] == active_song_id]
-            title = f"{song_df['title'].iloc[0]} -- {song_df['artist_name'].iloc[0]}"
-            fig = build_song_history_figure(song_df, title)
-            st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Couldn't build a chart-run plot for this song ({e.__class__.__name__}: {e}).")
+    render_song_history_section(filtered, enriched, chart_name, key_prefix="raw")
 
 if chart["has_scoring"]:
     runs = get_runs(chart)
@@ -144,6 +118,8 @@ if chart["has_scoring"]:
                     "in the table above."
                 )
 
+        render_song_history_section(lb_filtered, enriched, chart_name, key_prefix="lb")
+
     with tabs[2]:
         st.caption(
             "Points truncated at the frame boundary (year-end-chart style), "
@@ -154,3 +130,5 @@ if chart["has_scoring"]:
         standings = frame_standings_widget(enriched, chart_name, _mtime(chart["paths"]["enriched"]))
         st.write(f"{len(standings):,} songs")
         st.dataframe(clean_for_display(standings), use_container_width=True, height=500)
+
+        render_song_history_section(standings, enriched, chart_name, key_prefix="frame")
