@@ -92,17 +92,26 @@ def build_song_history_figure(song_df, title, log_scale=False):
 
     max_pos = int(song_df["current_position"].max())
     if log_scale:
+        log_max = math.log10(max_pos)
+        log_span = max(log_max, 0.1)  # avoid a degenerate zero span if max_pos == 1
+        log_pad = log_span * 0.08
         fig.update_yaxes(
             type="log",
-            range=[math.log10(max_pos * 1.1), 0],  # log10(1) = 0 -- 1 is always the top, regardless of data
+            # top pads slightly past log10(1)=0 so a marker AT position 1 isn't
+            # clipped by the plot edge; tick 1 itself still reads as the top.
+            range=[log_max + log_pad, -log_pad],
             zeroline=False,
             title="Chart position (log scale)",
         )
     else:
         step = _nice_step(max_pos)
         ticks = sorted(set([1] + list(range(step, max_pos + step, step))))
+        span = max(max_pos - 1, 1)  # avoid a degenerate zero span if max_pos == 1
+        pad = span * 0.05
         fig.update_yaxes(
-            range=[max_pos * 1.05, 1],  # 1 is always the top, regardless of data
+            # Same reasoning as the log branch: range pads slightly past 1 for
+            # marker headroom, but tickvals below still stop exactly at 1.
+            range=[max_pos + pad, 1 - pad],
             zeroline=False,
             title="Chart position",
             tickvals=ticks,
