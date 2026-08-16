@@ -15,6 +15,29 @@ import pandas as pd
 import streamlit as st
 
 DATA_DIR = "data/processed"
+DEFAULT_GENRES = ["All", "Country", "Dance", "Latin", "Media", "Pop", "R&B / Rap", "Rock"]
+FALLBACK_GENRE = "All"
+
+
+def _load_chart_manifest():
+    """scripts/chart_config.CHARTS is the source of truth for genre (there's
+    no way to derive genre from a filename the way display_name can be
+    derived from the slug). Falls back to an empty manifest if the import
+    fails, so chart discovery itself never breaks -- a chart just lands in
+    the fallback genre bucket until the manifest catches up."""
+    try:
+        from scripts.chart_config import CHARTS as _CHARTS
+        return _CHARTS
+    except Exception:
+        return {}
+
+
+def get_genres():
+    try:
+        from scripts.chart_config import GENRES as _GENRES
+        return list(_GENRES)
+    except Exception:
+        return list(DEFAULT_GENRES)
 
 
 def _chart_name_from_enriched_path(path):
@@ -39,11 +62,13 @@ def discover_charts(_data_dir=DATA_DIR):
     """
     Returns a dict: chart_name -> {
         "display_name": str,
+        "genre": str,           # from scripts/chart_config.CHARTS, falls back to "All"
         "has_scoring": bool,   # era_scores + runs + weekly_peer_summary all present
         "paths": {enriched, era_scores, runs, weekly_peer_summary, chart_totals}
     }
     Sorted by display name.
     """
+    manifest = _load_chart_manifest()
     enriched_paths = sorted(glob.glob(os.path.join(_data_dir, "*_enriched.parquet")))
     charts = {}
     for path in enriched_paths:
@@ -60,6 +85,7 @@ def discover_charts(_data_dir=DATA_DIR):
         )
         charts[name] = {
             "display_name": _display_name(name),
+            "genre": manifest.get(name, {}).get("genre", FALLBACK_GENRE),
             "has_scoring": has_scoring,
             "paths": paths,
         }

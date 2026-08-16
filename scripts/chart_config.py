@@ -1,10 +1,15 @@
 CHARTS = {
-    "hot-100": {"slug": "hot-100", "start_date": "1958-08-04"},
-    "billboard-200": {"slug": "billboard-200", "start_date": "1963-08-17"},
-    "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03"},
-    "country-radio": {"slug": "country-airplay", "start_date": "1990-01-20"},
-    "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10"},
+    "hot-100": {"slug": "hot-100", "start_date": "1958-08-04", "genre": "All"},
+    "billboard-200": {"slug": "billboard-200", "start_date": "1963-08-17", "genre": "All"},
+    "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
+    "country-radio": {"slug": "country-airplay", "start_date": "1990-01-20", "genre": "Country"},
+    "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
 }
+
+# Fixed, canonical list -- deliberately includes genres with no charts yet
+# (Dance, Latin, Media, R&B / Rap), so the dashboard's genre dropdown has a
+# slot ready for them the moment a chart is added, with no UI code changes.
+GENRES = ["All", "Country", "Dance", "Latin", "Media", "Pop", "R&B / Rap", "Rock"]
 
 # Derived for backward compatibility with existing callers (scripts/scraper.py
 # imports get_chart_slug; nothing needs CHART_URL_SLUGS directly anymore, but

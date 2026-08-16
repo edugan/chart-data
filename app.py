@@ -2,7 +2,7 @@ import os
 import streamlit as st
 
 from lib.data import (
-    discover_charts, get_enriched, get_runs, get_era_scores, _mtime,
+    discover_charts, get_enriched, get_runs, get_era_scores, get_genres, _mtime,
 )
 from lib.filters import raw_explorer_filters
 from lib.leaderboard import build_leaderboard_base, leaderboard_filters
@@ -21,11 +21,19 @@ if not charts:
     )
     st.stop()
 
+genre = st.sidebar.selectbox("Genre", get_genres())
+charts_in_genre = {name: info for name, info in charts.items() if info["genre"] == genre}
+
+if not charts_in_genre:
+    st.sidebar.info(f"No charts in {genre} yet.")
+    st.info(f"No charts in the '{genre}' genre yet -- pick a different genre from the sidebar.")
+    st.stop()
+
 chart_name = st.sidebar.selectbox(
-    "Chart", list(charts.keys()),
-    format_func=lambda name: charts[name]["display_name"],
+    "Chart", list(charts_in_genre.keys()),
+    format_func=lambda name: charts_in_genre[name]["display_name"],
 )
-chart = charts[chart_name]
+chart = charts_in_genre[chart_name]
 enriched = get_enriched(chart)
 
 tab_labels = ["Raw Data Explorer"]
