@@ -91,19 +91,24 @@ def build_song_history_figure(song_df, title, log_scale=False):
     fig.update_xaxes(title="Chart date (published)", tickvals=tickvals, ticktext=ticktext, tickangle=45)
 
     max_pos = int(song_df["current_position"].max())
-    min_pos = max(1, int(song_df["current_position"].min()))
     if log_scale:
         fig.update_yaxes(
             type="log",
-            range=[math.log10(max_pos * 1.1), math.log10(min_pos * 0.9)],
+            range=[math.log10(max_pos * 1.1), 0],  # log10(1) = 0 -- 1 is always the top, regardless of data
+            zeroline=False,
             title="Chart position (log scale)",
         )
     else:
         step = _nice_step(max_pos)
-        ticks = [1] + list(range(step, max_pos + step, step))
-        fig.update_yaxes(autorange="reversed", title="Chart position", tickvals=ticks)
+        ticks = sorted(set([1] + list(range(step, max_pos + step, step))))
+        fig.update_yaxes(
+            range=[max_pos * 1.05, 1],  # 1 is always the top, regardless of data
+            zeroline=False,
+            title="Chart position",
+            tickvals=ticks,
+        )
 
-    fig.update_layout(title=title, height=450, hovermode="closest")
+    fig.update_layout(title=title, height=600, hovermode="closest")
     return fig
 
 
