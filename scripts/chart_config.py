@@ -4,6 +4,8 @@ CHARTS = {
     "bubbling-under": {"slug": "bubbling-under-hot-100-singles", "start_date": "1992-12-05", "genre": "All"},
     "global-200": {"slug": "billboard-global-200", "start_date": "2020-09-19", "genre": "All"},
     "global-excl-us": {"slug": "billboard-global-excl-us", "start_date": "2020-09-19", "genre": "All"},
+    "song-radio": {"slug": "radio-songs", "start_date": "1990-11-03", "genre": "All"},
+    "song-sales": {"slug": "digital-song-sales", "start_date": "2004-10-30", "genre": "All"},
     "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
     "country-radio": {"slug": "country-airplay", "start_date": "1990-01-20", "genre": "Country"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
