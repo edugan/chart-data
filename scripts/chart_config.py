@@ -6,6 +6,7 @@ CHARTS = {
     "global-excl-us": {"slug": "billboard-global-excl-us", "start_date": "2020-09-19", "genre": "All"},
     "song-radio": {"slug": "radio-songs", "start_date": "1990-11-03", "genre": "All"},
     "song-sales": {"slug": "digital-song-sales", "start_date": "2004-10-30", "genre": "All"},
+    "song-streams": {"slug": "streaming-songs", "start_date": "2013-01-26", "genre": "All"},
     "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
     "country-radio": {"slug": "country-airplay", "start_date": "1990-01-20", "genre": "Country"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
