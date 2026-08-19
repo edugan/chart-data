@@ -17,11 +17,11 @@ on:
     # need to track "already checked" separately; a chart that already has
     # this week's data just makes zero HTTP requests on the later runs.
     - cron: "13 10 * * 2"   # Tue ~6am ET
-    - cron: "13 12 * * 2"   # Tue ~8am ET
-    - cron: "13 14 * * 2"   # Tue ~10am ET
+    # - cron: "13 12 * * 2"   # Tue ~8am ET
+    # - cron: "13 14 * * 2"   # Tue ~10am ET
     - cron: "13 10 * * 3"   # Wed ~6am ET (only matters if Tuesday's checks came up empty)
-    - cron: "13 12 * * 3"   # Wed ~8am ET
-    - cron: "13 14 * * 3"   # Wed ~10am ET
+    # - cron: "13 12 * * 3"   # Wed ~8am ET
+    # - cron: "13 14 * * 3"   # Wed ~10am ET
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 permissions:
