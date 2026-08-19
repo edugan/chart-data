@@ -22,6 +22,7 @@ import traceback
 from datetime import date, timedelta
 
 from scripts.chart_config import CHARTS
+from scripts.scoring import SCORING_FUNCTIONS
 from backfill import backfill
 from build_enriched_dataset import build_enriched_dataset
 from build_chart_runs import build_chart_runs
@@ -52,8 +53,20 @@ def run_chart(chart_name, start_date, end_date):
 
     raw_path = f"data/raw/{chart_name}.csv"
     backfill(chart_name, start_date=start_date, end_date=end_date, out_path=raw_path)
-
     build_enriched_dataset(chart_name)
+
+    # Scoring is a deliberately manual, per-chart onboarding step (fitting
+    # POINT_PARAMS in scripts/scoring.py) -- a chart with raw+enriched data
+    # but no scoring formula yet is a normal, expected state (raw browsing
+    # in the dashboard already works), NOT a failure. build_chart_runs.py
+    # requires SCORING_FUNCTIONS membership unconditionally, so check here
+    # rather than letting that raise and get logged as a real error.
+    if chart_name not in SCORING_FUNCTIONS:
+        print(f"-> No scoring formula yet for '{chart_name}' -- skipping runs/peer-summary/"
+              f"era-scores/chart-totals. Raw data is up to date; add POINT_PARAMS in "
+              f"scripts/scoring.py when ready to score this chart.")
+        return
+
     build_chart_runs(chart_name)  # split_runs=True default, per current policy for every chart
     build_weekly_peer_summary(chart_name)  # min_weeks_for_peer=1 default, unchanged
     compute_era_scores(chart_name, mode="routine")
