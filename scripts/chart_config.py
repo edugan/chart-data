@@ -10,8 +10,10 @@ CHARTS = {
     "album-sales": {"slug": "top-album-sales", "start_date": "1991-05-25", "genre": "All"},
     "vinyl-sales": {"slug": "vinyl-albums", "start_date": "2011-01-22", "genre": "All"},
     "album-streams": {"slug": "top-streaming-albums", "start_date": "2023-10-28", "genre": "All"},
-    "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
     "country-radio": {"slug": "country-airplay", "start_date": "1990-01-20", "genre": "Country"},
+    "country-songs": {"slug": "country-songs", "start_date": "1958-10-20", "genre": "Country"},
+    "country-albums": {"slug": "country-albums", "start_date": "1964-01-11", "genre": "Country"},
+    "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
     # "NAME": {"slug": "URL", "start_date": "DATE", "genre": "GENRE"},
 }

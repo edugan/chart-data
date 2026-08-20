@@ -9,13 +9,15 @@ def _general_points(k, d, b, c):
 
 # Each chart's (d, b, c) parameters, fit from real chart-points/units data.
 POINT_PARAMS = {
-    "hot-100":       dict(d=-1.2826,   b=0.36673,  c=0.0016766),
-    "global-200":       dict(d=-1.2826,   b=0.36673,  c=0.0016766),
-    "global-excl-us":       dict(d=-1.2826,   b=0.36673,  c=0.0016766),
-    "billboard-200": dict(d=0.255287,  b=0.543096, c=0.000284569),
-    "pop-radio":     dict(d=-2.0307,   b=0.351007, c=0.020407),
-    "country-radio": dict(d=-2.0307,   b=0.351007, c=0.020407),
-    "alt-radio":     dict(d=-2.0307,   b=0.351007, c=0.020407),
+    "hot-100":          dict(d=-1.2826,  b=0.36673,  c=0.0016766),
+    "global-200":       dict(d=-1.2826,  b=0.36673,  c=0.0016766),
+    "global-excl-us":   dict(d=-1.2826,  b=0.36673,  c=0.0016766),
+    "billboard-200":    dict(d=0.255287, b=0.543096, c=0.000284569),
+    "country-radio":    dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "country-songs":    dict(d=-1.2826,  b=0.36673,  c=0.0016766),
+    "country-albums":   dict(d=0.255287, b=0.543096, c=0.000284569),
+    "pop-radio":        dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "alt-radio":        dict(d=-2.0307,  b=0.351007, c=0.020407),
 }
 
 
