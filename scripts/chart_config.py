@@ -23,6 +23,8 @@ CHARTS = {
     "cast-albums": {"slug": "cast-albums", "start_date": "2006-01-14", "genre": "Media"},
     "soundtracks": {"slug": "soundtracks", "start_date": "2001-06-30", "genre": "Media"},
     "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
+    "hac-radio": {"slug": "adult-pop-songs", "start_date": "1995-10-07", "genre": "Pop"},
+    "ac-radio": {"slug": "adult-contemporary", "start_date": "1961-07-17", "genre": "Pop"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
     # "NAME": {"slug": "URL", "start_date": "DATE", "genre": "GENRE"},
 }

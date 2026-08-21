@@ -26,6 +26,8 @@ POINT_PARAMS = {
     "cast-albums":              dict(d=0.255287, b=0.543096, c=0.000284569),
     "soundtracks":              dict(d=0.255287, b=0.543096, c=0.000284569),
     "pop-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "hac-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "ac-radio":                 dict(d=-2.0307,  b=0.351007, c=0.020407),
     "alt-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
 }
 
