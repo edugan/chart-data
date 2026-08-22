@@ -31,7 +31,11 @@ CHARTS = {
     "urban-ac-radio": {"slug": "hot-adult-r-and-b-airplay", "start_date": "1993-09-18", "genre": "R&B / Rap"},
     "rhythmic-radio": {"slug": "rhythmic-40", "start_date": "1992-10-03", "genre": "R&B / Rap"},
     "rnb-rap-albums": {"slug": "r-b-hip-hop-albums", "start_date": "1965-01-30", "genre": "R&B / Rap"},
+    "rock-songs": {"slug": "rock-songs", "start_date": "2009-06-20", "genre": "Rock"},
+    "active-radio": {"slug": "hot-mainstream-rock-tracks", "start_date": "1981-03-21", "genre": "Rock"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
+    "aaa-radio": {"slug": "triple-a", "start_date": "1996-01-20", "genre": "Rock"},
+    "rock-albums": {"slug": "top-rock-alternative-albums", "start_date": "2006-01-14", "genre": "Rock"},
     # "NAME": {"slug": "URL", "start_date": "DATE", "genre": "GENRE"},
 }
 
