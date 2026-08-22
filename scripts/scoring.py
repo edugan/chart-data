@@ -28,6 +28,12 @@ POINT_PARAMS = {
     "pop-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
     "hac-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
     "ac-radio":                 dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "rnb-rap-songs":            dict(d=-1.2826,  b=0.36673,  c=0.0016766),
+    "rap-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "urban-radio":              dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "urban-ac-radio":           dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "rhythmic-radio":           dict(d=-2.0307,  b=0.351007, c=0.020407),
+    "rnb-rap-albums":           dict(d=0.255287, b=0.543096, c=0.000284569),
     "alt-radio":                dict(d=-2.0307,  b=0.351007, c=0.020407),
 }
 

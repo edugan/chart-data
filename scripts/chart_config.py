@@ -25,6 +25,12 @@ CHARTS = {
     "pop-radio": {"slug": "pop-songs", "start_date": "1992-10-03", "genre": "Pop"},
     "hac-radio": {"slug": "adult-pop-songs", "start_date": "1995-10-07", "genre": "Pop"},
     "ac-radio": {"slug": "adult-contemporary", "start_date": "1961-07-17", "genre": "Pop"},
+    "rnb-rap-songs": {"slug": "r-b-hip-hop-songs", "start_date": "1958-10-20", "genre": "R&B / Rap"},
+    "rap-radio": {"slug": "hot-rap-tracks", "start_date": "1999-02-20", "genre": "R&B / Rap"},
+    "urban-radio": {"slug": "mainstream-r-and-b-hip-hop", "start_date": "1993-09-18", "genre": "R&B / Rap"},
+    "urban-ac-radio": {"slug": "hot-adult-r-and-b-airplay", "start_date": "1993-09-18", "genre": "R&B / Rap"},
+    "rhythmic-radio": {"slug": "rhythmic-40", "start_date": "1992-10-03", "genre": "R&B / Rap"},
+    "rnb-rap-albums": {"slug": "r-b-hip-hop-albums", "start_date": "1965-01-30", "genre": "R&B / Rap"},
     "alt-radio": {"slug": "alternative-airplay", "start_date": "1988-09-10", "genre": "Rock"},
     # "NAME": {"slug": "URL", "start_date": "DATE", "genre": "GENRE"},
 }
